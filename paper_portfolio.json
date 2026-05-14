@@ -1,0 +1,116 @@
+{
+  "cash": 100223.54216861558,
+  "positions": {},
+  "trades": [
+    {
+      "date": "2026-05-05",
+      "ticker": "AAPL",
+      "action": "BUY",
+      "shares": 65.00541855096276,
+      "price": 276.8999938964844,
+      "notional": 18000.0,
+      "pnl": null
+    },
+    {
+      "date": "2026-05-05",
+      "ticker": "MSFT",
+      "action": "BUY",
+      "shares": 21.670037179244698,
+      "price": 415.32000732421875,
+      "notional": 9000.0,
+      "pnl": null
+    },
+    {
+      "date": "2026-05-05",
+      "ticker": "NVDA",
+      "action": "BUY",
+      "shares": 45.15805249467416,
+      "price": 199.3000030517578,
+      "notional": 9000.0,
+      "pnl": null
+    },
+    {
+      "date": "2026-05-05",
+      "ticker": "GOOGL",
+      "action": "BUY",
+      "shares": 23.295000175357057,
+      "price": 386.3489990234375,
+      "notional": 9000.0,
+      "pnl": null
+    },
+    {
+      "date": "2026-05-05",
+      "ticker": "AMZN",
+      "action": "BUY",
+      "shares": 32.58508183284898,
+      "price": 276.20001220703125,
+      "notional": 9000.0,
+      "pnl": null
+    },
+    {
+      "date": "2026-05-05",
+      "ticker": "AAPL",
+      "action": "SELL",
+      "shares": 65.00541855096276,
+      "price": 284.17999267578125,
+      "notional": 18473.23936769869,
+      "pnl": 473.2394
+    },
+    {
+      "date": "2026-05-05",
+      "ticker": "MSFT",
+      "action": "SELL",
+      "shares": 21.670037179244698,
+      "price": 411.3800048828125,
+      "notional": 8914.620000608413,
+      "pnl": -85.38
+    },
+    {
+      "date": "2026-05-05",
+      "ticker": "NVDA",
+      "action": "SELL",
+      "shares": 45.15805249467416,
+      "price": 196.5,
+      "notional": 8873.557315203472,
+      "pnl": -126.4427
+    },
+    {
+      "date": "2026-05-05",
+      "ticker": "GOOGL",
+      "action": "SELL",
+      "shares": 23.295000175357057,
+      "price": 388.42999267578125,
+      "notional": 9048.476747496265,
+      "pnl": 48.4767
+    },
+    {
+      "date": "2026-05-05",
+      "ticker": "AMZN",
+      "action": "SELL",
+      "shares": 32.58508183284898,
+      "price": 273.54998779296875,
+      "notional": 8913.648737608726,
+      "pnl": -86.3513
+    }
+  ],
+  "snapshots": [
+    {
+      "ts": "2026-05-05T10:17:47.013365-04:00",
+      "label": "morning_open",
+      "cash": 46000.0,
+      "market_value": 53979.86,
+      "total_value": 99979.86,
+      "pnl": -20.14,
+      "pnl_pct": -0.0201
+    },
+    {
+      "ts": "2026-05-05T17:50:08.678212-04:00",
+      "label": "eod_2026-05-05",
+      "cash": 100223.54,
+      "market_value": 0.0,
+      "total_value": 100223.54,
+      "pnl": 223.54,
+      "pnl_pct": 0.2235
+    }
+  ]
+}
