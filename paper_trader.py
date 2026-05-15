@@ -29,13 +29,9 @@ from datetime import datetime, date
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-import yfinance as yf
 from dotenv import load_dotenv
 
 from notifier import send_telegram, telegram_configured
-from tradingagents.agents.utils.rating import parse_rating
-from tradingagents.default_config import DEFAULT_CONFIG
-from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 load_dotenv()
 
@@ -545,6 +541,8 @@ def get_prices(tickers: list, mode: str = "last") -> dict:
     """
     prices = {}
     today = datetime.now(IST).date()
+    import yfinance as yf
+
     for ticker in tickers:
         try:
             t = yf.Ticker(ticker)
@@ -587,7 +585,7 @@ def time_until(dt: datetime, h: int, m: int) -> float:
 
 # -- Morning analysis ----------------------------------------------------------
 
-def run_morning_analysis(ta: TradingAgentsGraph, portfolio: Portfolio) -> None:
+def run_morning_analysis(ta, portfolio: Portfolio) -> None:
     now = datetime.now(IST)
     today = now.strftime("%Y-%m-%d")
     tickers = PAPER_CONFIG["tickers"]
@@ -618,6 +616,8 @@ def run_morning_analysis(ta: TradingAgentsGraph, portfolio: Portfolio) -> None:
         log.info("[%s] Analysing %s …", ticker, today)
 
         try:
+            from tradingagents.agents.utils.rating import parse_rating
+
             _, decision = ta.propagate(ticker, today)
             rating = parse_rating(decision)
             signal = RATING_TO_SIGNAL.get(rating)
@@ -800,7 +800,7 @@ def _print_snapshot(
 
 # -- Main scheduler loop -------------------------------------------------------
 
-def main_loop(ta: TradingAgentsGraph, portfolio: Portfolio) -> None:
+def main_loop(ta, portfolio: Portfolio) -> None:
     cfg = PAPER_CONFIG
     ah, am = map(int, cfg["analysis_time"].split(":"))
 
@@ -946,6 +946,9 @@ def main() -> None:
     _assert_safe_to_run_bot()
     instance_lock = SingleInstanceLock(lock_file)
     instance_lock.acquire()
+
+    from tradingagents.default_config import DEFAULT_CONFIG
+    from tradingagents.graph.trading_graph import TradingAgentsGraph
 
     ta_config = DEFAULT_CONFIG.copy()
     ta_config.update(

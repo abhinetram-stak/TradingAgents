@@ -25,3 +25,8 @@ primary_region = "sin"
   source = "tradingagents_data"
   destination = "/data"
   processes = ["app"]
+
+[[vm]]
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1

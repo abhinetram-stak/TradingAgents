@@ -26,8 +26,6 @@ from dotenv import load_dotenv
 
 import paper_trader
 from paper_trader import IST, PAPER_CONFIG, Portfolio
-from tradingagents.default_config import DEFAULT_CONFIG
-from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 load_dotenv()
 
@@ -184,7 +182,12 @@ def _tail_lines(path: Path, limit: int) -> list[str]:
 
 
 def _analysis_log_root() -> Path:
-    configured = Path(DEFAULT_CONFIG["results_dir"]).expanduser()
+    configured = Path(
+        os.getenv(
+            "TRADINGAGENTS_RESULTS_DIR",
+            Path.home() / ".tradingagents" / "logs",
+        )
+    ).expanduser()
     return configured if configured.is_absolute() else ROOT / configured
 
 
@@ -297,9 +300,12 @@ def _capture_output(func, *args) -> dict[str, Any]:
             return {"ok": False, "output": buffer.getvalue(), "error": str(exc), "traceback": traceback.format_exc()}
 
 
-def _make_trading_graph() -> TradingAgentsGraph:
+def _make_trading_graph():
     if not os.getenv("OPENAI_API_KEY"):
         raise EnvironmentError("OPENAI_API_KEY is not set. Add it to .env before running analysis.")
+    from tradingagents.default_config import DEFAULT_CONFIG
+    from tradingagents.graph.trading_graph import TradingAgentsGraph
+
     cfg = DEFAULT_CONFIG.copy()
     cfg.update(
         {
