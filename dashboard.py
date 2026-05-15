@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import contextlib
+import base64
+import hmac
 import io
 import json
 import os
@@ -52,15 +54,32 @@ def _read_json(path: Path, fallback: Any) -> Any:
 
 
 def _state_file() -> Path:
-    return ROOT / PAPER_CONFIG["state_file"]
+    path = Path(PAPER_CONFIG["state_file"]).expanduser()
+    if path.is_absolute():
+        return path
+    return Path(PAPER_CONFIG["data_dir"]).expanduser() / path
 
 
 def _log_file() -> Path:
-    return ROOT / PAPER_CONFIG["log_file"]
+    path = Path(PAPER_CONFIG["log_file"]).expanduser()
+    if path.is_absolute():
+        return path
+    return Path(PAPER_CONFIG["data_dir"]).expanduser() / path
+
+
+def _process_log_file() -> Path:
+    return _log_file().with_name("paper_trader.process.log")
+
+
+def _lock_file() -> Path:
+    path = Path(PAPER_CONFIG["lock_file"]).expanduser()
+    if path.is_absolute():
+        return path
+    return Path(PAPER_CONFIG["data_dir"]).expanduser() / path
 
 
 def _portfolio() -> Portfolio:
-    return Portfolio(PAPER_CONFIG["state_file"], PAPER_CONFIG["starting_capital"])
+    return Portfolio(str(_state_file()), PAPER_CONFIG["starting_capital"])
 
 
 def _latest_logged_marks() -> dict[str, float]:
@@ -231,8 +250,40 @@ def _status_payload() -> dict[str, Any]:
         "trades": state.get("trades", []),
         "snapshots": state.get("snapshots", []),
         "bot": _bot_status(),
+        "safety": {
+            "auth_required": _auth_required(),
+            "mutating_controls_enabled": _mutating_controls_enabled(),
+            "lock_file": str(_lock_file()),
+        },
         "latest_states": [_compact_state(path) for path in _state_log_files()[:8]],
     }
+
+
+def _mutating_controls_enabled() -> bool:
+    return PAPER_CONFIG["bot_enabled"] and PAPER_CONFIG["trading_mode"] == "paper"
+
+
+def _auth_required() -> bool:
+    return bool(os.getenv("DASHBOARD_PASSWORD") or os.getenv("DASHBOARD_TOKEN"))
+
+
+def _authorized(headers) -> bool:
+    password = os.getenv("DASHBOARD_PASSWORD")
+    token = os.getenv("DASHBOARD_TOKEN")
+    auth = headers.get("Authorization", "")
+
+    if token and auth.startswith("Bearer "):
+        return hmac.compare_digest(auth.removeprefix("Bearer ").strip(), token)
+
+    if password and auth.startswith("Basic "):
+        try:
+            decoded = base64.b64decode(auth.removeprefix("Basic ").strip()).decode("utf-8")
+        except Exception:
+            return False
+        username, sep, supplied = decoded.partition(":")
+        return bool(sep) and username == "admin" and hmac.compare_digest(supplied, password)
+
+    return not _auth_required()
 
 
 def _capture_output(func, *args) -> dict[str, Any]:
@@ -269,6 +320,11 @@ def _make_trading_graph() -> TradingAgentsGraph:
 
 
 def _control_action(action: str) -> dict[str, Any]:
+    if action != "status" and not _mutating_controls_enabled():
+        return {
+            "ok": False,
+            "error": "Mutating controls are disabled. Set TRADING_MODE=paper and BOT_ENABLED=true to enable them.",
+        }
     portfolio = _portfolio()
     if action == "status":
         return _capture_output(paper_trader.cmd_status, portfolio)
@@ -294,10 +350,23 @@ def _bot_status() -> dict[str, Any]:
 
 def _start_bot() -> dict[str, Any]:
     global BOT_PROCESS
+    if not _mutating_controls_enabled():
+        return {
+            "ok": False,
+            "bot": _bot_status(),
+            "message": "Bot start is disabled. Set TRADING_MODE=paper and BOT_ENABLED=true.",
+        }
     if _bot_status()["running"]:
         return {"ok": True, "bot": _bot_status(), "message": "Paper trader is already running."}
+    if _lock_file().exists():
+        return {
+            "ok": False,
+            "bot": _bot_status(),
+            "message": f"Paper trader lock exists at {_lock_file()}; another instance may already be running.",
+        }
     env = os.environ.copy()
-    logfile = ROOT / "paper_trader.process.log"
+    logfile = _process_log_file()
+    logfile.parent.mkdir(parents=True, exist_ok=True)
     stream = logfile.open("a", encoding="utf-8")
     BOT_PROCESS = subprocess.Popen(
         [sys.executable, str(ROOT / "paper_trader.py")],
@@ -332,6 +401,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
     server_version = "TradingAgentsDashboard/1.0"
 
     def do_GET(self) -> None:
+        if not self._check_auth():
+            return
         parsed = urlparse(self.path)
         if parsed.path == "/api/status":
             self._send_json(_status_payload())
@@ -346,6 +417,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self._serve_static(parsed.path)
 
     def do_POST(self) -> None:
+        if not self._check_auth():
+            return
         parsed = urlparse(self.path)
         body = self.rfile.read(int(self.headers.get("Content-Length", "0") or 0))
         payload = json.loads(body.decode("utf-8") or "{}") if body else {}
@@ -394,6 +467,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _check_auth(self) -> bool:
+        if _authorized(self.headers):
+            return True
+        self.send_response(HTTPStatus.UNAUTHORIZED)
+        self.send_header("WWW-Authenticate", 'Basic realm="TradingAgents Dashboard"')
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(b'{"error":"Unauthorized"}')
+        return False
+
     def log_message(self, fmt: str, *args: Any) -> None:
         sys.stdout.write("%s - %s\n" % (self.log_date_time_string(), fmt % args))
 
@@ -406,7 +489,14 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
 
-    paper_trader._setup_logging(PAPER_CONFIG["log_file"])
+    for path in (_state_file(), _log_file(), _lock_file()):
+        path.parent.mkdir(parents=True, exist_ok=True)
+    paper_trader._setup_logging(str(_log_file()))
+    if args.host not in {"127.0.0.1", "localhost", "::1"} and not _auth_required():
+        raise RuntimeError(
+            "Refusing to bind dashboard publicly without auth. "
+            "Set DASHBOARD_PASSWORD or DASHBOARD_TOKEN."
+        )
     with CONFIG_LOCK:
         os.chdir(ROOT)
     server = ThreadingHTTPServer((args.host, args.port), DashboardHandler)

@@ -11,5 +11,9 @@ build
 dist
 results
 eval_results
+paper_portfolio.json
+paper_trades.log
+paper_trader.process.log
+paper_trader.lock
 Dockerfile
 docker-compose.yml

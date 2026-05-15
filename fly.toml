@@ -1,0 +1,27 @@
+app = "tradingagents-india-paper"
+primary_region = "sin"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PAPER_DATA_DIR = "/data"
+  PAPER_STATE_FILE = "paper_portfolio.json"
+  PAPER_LOG_FILE = "paper_trades.log"
+  PAPER_LOCK_FILE = "paper_trader.lock"
+  TRADING_MODE = "paper"
+  BOT_ENABLED = "false"
+  DASHBOARD_LIVE_PRICES = "0"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+[[mounts]]
+  source = "tradingagents_data"
+  destination = "/data"
+  processes = ["app"]

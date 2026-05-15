@@ -75,11 +75,25 @@ function render(data) {
   $("#bot-dot").classList.toggle("running", data.bot.running);
   $("#bot-state").textContent = data.bot.running ? "Bot running" : "Bot stopped";
   $("#bot-pid").textContent = data.bot.pid ? `PID ${data.bot.pid}` : "No dashboard-owned PID";
+  renderSafety(data.safety || {});
 
   renderPositions(p.positions);
   renderTrades(data.trades);
   renderStates(data.latest_states);
   drawEquity(data.snapshots, p.starting_capital);
+}
+
+function renderSafety(safety) {
+  const enabled = safety.mutating_controls_enabled !== false;
+  $$("[data-action]").forEach((button) => {
+    if (button.dataset.action === "status") return;
+    button.disabled = !enabled;
+    button.title = enabled ? "" : "Disabled by BOT_ENABLED/TRADING_MODE deployment safety settings";
+  });
+  $$("[data-bot]").forEach((button) => {
+    button.disabled = !enabled;
+    button.title = enabled ? "" : "Disabled by BOT_ENABLED/TRADING_MODE deployment safety settings";
+  });
 }
 
 function winRate(trades) {

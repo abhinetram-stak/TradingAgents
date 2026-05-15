@@ -157,6 +157,13 @@ ENV/
 env.bak/
 venv.bak/
 
+# TradingAgents local runtime state and deployment artifacts
+paper_portfolio.json
+paper_trades.log
+paper_trader.process.log
+paper_trader.lock
+*.process.log
+
 # Spyder project settings
 .spyderproject
 .spyproject

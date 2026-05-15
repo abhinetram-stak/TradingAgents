@@ -19,6 +19,7 @@ Usage:
 """
 
 import argparse
+import atexit
 import json
 import logging
 import os
@@ -87,9 +88,15 @@ PAPER_CONFIG = {
         os.getenv("PAPER_NOTIFICATION_INTERVAL_SECONDS", "1800")
     ),
 
+    # Deployment safety controls.
+    "trading_mode": os.getenv("TRADING_MODE", "paper").lower(),
+    "bot_enabled": os.getenv("BOT_ENABLED", "1").lower() in {"1", "true", "yes", "on"},
+
     # Persistence paths
-    "state_file": "paper_portfolio.json",
-    "log_file":   "paper_trades.log",
+    "data_dir": os.getenv("PAPER_DATA_DIR", "."),
+    "state_file": os.getenv("PAPER_STATE_FILE", "paper_portfolio.json"),
+    "log_file": os.getenv("PAPER_LOG_FILE", "paper_trades.log"),
+    "lock_file": os.getenv("PAPER_LOCK_FILE", "paper_trader.lock"),
 }
 
 # Rating → signed position multiplier
@@ -105,6 +112,8 @@ RATING_TO_SIGNAL = {
 # -- Logging -------------------------------------------------------------------
 
 def _setup_logging(log_file: str) -> None:
+    log_path = Path(log_file)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
     fmt = "%(asctime)s  %(levelname)-8s  %(message)s"
     logging.basicConfig(
         level=logging.INFO,
@@ -112,11 +121,65 @@ def _setup_logging(log_file: str) -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
         handlers=[
             logging.StreamHandler(sys.stdout),
-            logging.FileHandler(log_file, encoding="utf-8"),
+            logging.FileHandler(log_path, encoding="utf-8"),
         ],
     )
 
 log = logging.getLogger(__name__)
+
+
+# -- Paths and process safety --------------------------------------------------
+
+def _runtime_path(config_key: str) -> Path:
+    path = Path(PAPER_CONFIG[config_key]).expanduser()
+    if path.is_absolute():
+        return path
+    return Path(PAPER_CONFIG["data_dir"]).expanduser() / path
+
+
+def _ensure_runtime_dirs() -> None:
+    for key in ("state_file", "log_file", "lock_file"):
+        _runtime_path(key).parent.mkdir(parents=True, exist_ok=True)
+
+
+class SingleInstanceLock:
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.acquired = False
+
+    def acquire(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            fd = os.open(str(self.path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError as exc:
+            details = self.path.read_text(encoding="utf-8", errors="replace").strip()
+            raise RuntimeError(
+                f"Another paper trader instance appears to be running. "
+                f"Lock file: {self.path}. Details: {details}"
+            ) from exc
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(f"pid={os.getpid()}\nstarted={datetime.now(IST).isoformat()}\n")
+        self.acquired = True
+        atexit.register(self.release)
+
+    def release(self) -> None:
+        if not self.acquired:
+            return
+        try:
+            self.path.unlink(missing_ok=True)
+        except OSError as exc:
+            log.warning("Could not remove lock file %s: %s", self.path, exc)
+        finally:
+            self.acquired = False
+
+
+def _assert_safe_to_run_bot() -> None:
+    if PAPER_CONFIG["trading_mode"] != "paper":
+        raise RuntimeError(
+            "Refusing to run: TRADING_MODE must be set to 'paper' for this app."
+        )
+    if not PAPER_CONFIG["bot_enabled"]:
+        raise RuntimeError("BOT_ENABLED is false; scheduled paper trading is disabled.")
 
 
 # -- Notifications -------------------------------------------------------------
@@ -184,6 +247,7 @@ class Portfolio:
     def __init__(self, state_file: str, starting_capital: float) -> None:
         self.state_file = Path(state_file)
         self.starting_capital = starting_capital
+        self.state_file.parent.mkdir(parents=True, exist_ok=True)
         self._load_or_init()
 
     def _load_or_init(self) -> None:
@@ -854,16 +918,19 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = PAPER_CONFIG
-    _setup_logging(cfg["log_file"])
+    _ensure_runtime_dirs()
+    state_file = _runtime_path("state_file")
+    log_file = _runtime_path("log_file")
+    lock_file = _runtime_path("lock_file")
+    _setup_logging(str(log_file))
 
     if args.reset:
-        p = Path(cfg["state_file"])
-        if p.exists():
-            p.unlink()
+        if state_file.exists():
+            state_file.unlink()
         log.info("Portfolio reset to ₹%.2f", cfg["starting_capital"])
         return
 
-    portfolio = Portfolio(cfg["state_file"], cfg["starting_capital"])
+    portfolio = Portfolio(str(state_file), cfg["starting_capital"])
 
     if args.status:
         cmd_status(portfolio)
@@ -875,6 +942,10 @@ def main() -> None:
 
     if not os.getenv("OPENAI_API_KEY"):
         raise EnvironmentError("OPENAI_API_KEY not set — add it to .env or export it.")
+
+    _assert_safe_to_run_bot()
+    instance_lock = SingleInstanceLock(lock_file)
+    instance_lock.acquire()
 
     ta_config = DEFAULT_CONFIG.copy()
     ta_config.update(
@@ -898,6 +969,8 @@ def main() -> None:
         main_loop(ta, portfolio)
     except KeyboardInterrupt:
         log.info("Stopped. Portfolio state saved to %s", portfolio.state_file)
+    finally:
+        instance_lock.release()
 
 
 if __name__ == "__main__":
