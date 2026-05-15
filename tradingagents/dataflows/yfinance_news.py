@@ -120,12 +120,12 @@ def get_global_news_yfinance(
     Returns:
         Formatted string containing global news articles
     """
-    # Search queries for macro/global news
+    # Search queries for India macro/global news
     search_queries = [
-        "stock market economy",
-        "Federal Reserve interest rates",
-        "inflation economic outlook",
-        "global markets trading",
+        "NSE Nifty Sensex India stock market",
+        "RBI repo rate monetary policy India",
+        "India inflation CPI economic outlook",
+        "India budget FII FDI foreign investment",
     ]
 
     all_news = []
@@ -191,7 +191,7 @@ def get_global_news_yfinance(
                 news_str += f"Link: {link}\n"
             news_str += "\n"
 
-        return f"## Global Market News, from {start_date} to {curr_date}:\n\n{news_str}"
+        return f"## India Market News, from {start_date} to {curr_date}:\n\n{news_str}"
 
     except Exception as e:
         return f"Error fetching global news: {str(e)}"

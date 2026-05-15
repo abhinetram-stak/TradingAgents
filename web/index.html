@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TradingAgents India Dashboard</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="mark">TA</div>
+        <div>
+          <h1>TradingAgents</h1>
+          <p>India paper desk</p>
+        </div>
+      </div>
+      <nav>
+        <a href="#overview" class="active">Overview</a>
+        <a href="#positions">Positions</a>
+        <a href="#trades">Trades</a>
+        <a href="#agents">Agents</a>
+        <a href="#logs">Logs</a>
+      </nav>
+      <div class="bot-card">
+        <span id="bot-dot" class="dot"></span>
+        <div>
+          <strong id="bot-state">Checking</strong>
+          <span id="bot-pid">PID unavailable</span>
+        </div>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <h2>Paper Trading Control Room</h2>
+          <p id="last-refresh">Waiting for data</p>
+        </div>
+        <div class="toolbar">
+          <button id="refresh-btn" class="icon-button" title="Refresh">Refresh</button>
+          <button data-bot="start" class="primary">Start Bot</button>
+          <button data-bot="stop">Stop Bot</button>
+        </div>
+      </header>
+
+      <section class="pnl-strip" aria-label="Overall profit and loss">
+        <div class="pnl-label">Overall P&L</div>
+        <div id="pnl-ticker" class="pnl-value">--</div>
+        <div id="pnl-ticker-detail" class="pnl-detail">Waiting for portfolio marks</div>
+      </section>
+
+      <section id="overview" class="metrics">
+        <article>
+          <span>Total Value</span>
+          <strong id="metric-total">--</strong>
+          <small id="metric-pnl">--</small>
+        </article>
+        <article>
+          <span>Cash</span>
+          <strong id="metric-cash">--</strong>
+          <small id="metric-market">--</small>
+        </article>
+        <article>
+          <span>Open Risk</span>
+          <strong id="metric-open">--</strong>
+          <small id="metric-unrealised">--</small>
+        </article>
+        <article>
+          <span>Trades</span>
+          <strong id="metric-trades">--</strong>
+          <small id="metric-winrate">--</small>
+        </article>
+      </section>
+
+      <section class="grid two">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Equity Curve</h3>
+            <span>Snapshots</span>
+          </div>
+          <canvas id="equity-chart" width="720" height="260"></canvas>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Operations</h3>
+            <span>Manual controls</span>
+          </div>
+          <div class="actions">
+            <button data-action="status">Print Status</button>
+            <button data-action="price_check">Run Price Check</button>
+            <button data-action="eod_summary">EOD Summary</button>
+            <button data-action="eod_close">EOD Close</button>
+            <button data-action="morning_analysis" class="danger">Morning Analysis</button>
+          </div>
+          <pre id="operation-output" class="output">No operation has run from the dashboard yet.</pre>
+        </div>
+      </section>
+
+      <section id="positions" class="panel">
+        <div class="panel-head">
+          <h3>Open Positions</h3>
+          <span id="position-count">0 open</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ticker</th>
+                <th>Side</th>
+                <th>Shares</th>
+                <th>Entry</th>
+                <th>Now</th>
+                <th>uP&L</th>
+                <th>Stop</th>
+                <th>Target</th>
+              </tr>
+            </thead>
+            <tbody id="positions-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="trades" class="panel">
+        <div class="panel-head">
+          <h3>Trade Tape</h3>
+          <span id="trade-count">0 trades</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Ticker</th>
+                <th>Action</th>
+                <th>Shares</th>
+                <th>Price</th>
+                <th>Notional</th>
+                <th>P&L</th>
+              </tr>
+            </thead>
+            <tbody id="trades-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="agents" class="panel">
+        <div class="panel-head">
+          <h3>Agent Decisions</h3>
+          <span id="state-count">0 runs</span>
+        </div>
+        <div id="state-list" class="state-list"></div>
+      </section>
+
+      <section id="logs" class="panel">
+        <div class="panel-head">
+          <h3>Runtime Log</h3>
+          <span>Latest lines</span>
+        </div>
+        <pre id="logs-box" class="logs">Loading logs...</pre>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

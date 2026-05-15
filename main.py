@@ -12,19 +12,19 @@ config["deep_think_llm"] = "gpt-5.4-mini"  # Use a different model
 config["quick_think_llm"] = "gpt-5.4-mini"  # Use a different model
 config["max_debate_rounds"] = 1  # Increase debate rounds
 
-# Configure data vendors (default uses yfinance, no extra API keys needed)
+# Configure data vendors
 config["data_vendors"] = {
-    "core_stock_apis": "yfinance",           # Options: alpha_vantage, yfinance
-    "technical_indicators": "yfinance",      # Options: alpha_vantage, yfinance
-    "fundamental_data": "yfinance",          # Options: alpha_vantage, yfinance
-    "news_data": "yfinance",                 # Options: alpha_vantage, yfinance
+    "core_stock_apis":      "yfinance",
+    "technical_indicators": "yfinance",
+    "fundamental_data":     "yfinance",
+    "news_data":            "rss",       # ET RSS feeds (India)
 }
 
 # Initialize with custom config
 ta = TradingAgentsGraph(debug=True, config=config)
 
-# forward propagate
-_, decision = ta.propagate("NVDA", "2024-05-10")
+# forward propagate — use an NSE ticker
+_, decision = ta.propagate("RELIANCE.NS", "2026-04-01")
 print(decision)
 
 # Memorize mistakes and reflect
