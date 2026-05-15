@@ -13,6 +13,8 @@ def create_market_analyst(llm):
     def market_analyst_node(state):
         current_date = state["trade_date"]
         instrument_context = build_instrument_context(state["company_of_interest"])
+        trading_objective = state.get("trading_objective", "")
+        intraday_context = state.get("intraday_context", "")
 
         tools = [
             get_stock_data,
@@ -44,9 +46,21 @@ Volatility Indicators:
 Volume-Based Indicators:
 - vwma: VWMA: A moving average weighted by volume. Usage: Confirm trends by integrating price action with volume data. Tips: Watch for skewed results from volume spikes; use in combination with other volume analyses.
 
-- Select indicators that provide diverse and complementary information. Avoid redundancy (e.g., do not select both rsi and stochrsi). Also briefly explain why they are suitable for the given market context. When you tool call, please use the exact name of the indicators provided above as they are defined parameters, otherwise your call will fail. Please make sure to call get_stock_data first to retrieve the CSV that is needed to generate indicators. Then use get_indicators with the specific indicator names. Write a very detailed and nuanced report of the trends you observe. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."""
+- Select indicators that provide diverse and complementary information. Avoid redundancy (e.g., do not select both rsi and stochrsi). Also briefly explain why they are suitable for the given market context. When you tool call, please use the exact name of the indicators provided above as they are defined parameters, otherwise your call will fail. Please make sure to call get_stock_data first to retrieve the CSV that is needed to generate indicators. Then use get_indicators with the specific indicator names. Write a very detailed and nuanced report of the trends you observe. Provide specific, actionable insights with supporting evidence to help traders make informed decisions.
+
+Intraday mandate:
+{trading_objective}
+
+Intraday context:
+{intraday_context}
+
+For this run, prioritize today's intraday setup: opening range, VWAP relationship, gap, current momentum, liquidity, volatility, support/resistance, and whether a trade is realistic before the end-of-day exit. Avoid long-term price targets or 3-6 month framing."""
             + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
             + get_language_instruction()
+        )
+        system_message = system_message.format(
+            trading_objective=trading_objective or "Evaluate the next actionable trade.",
+            intraday_context=intraday_context or "No intraday context supplied.",
         )
 
         prompt = ChatPromptTemplate.from_messages(

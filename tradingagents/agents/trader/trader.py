@@ -21,14 +21,18 @@ def create_trader(llm):
         company_name = state["company_of_interest"]
         instrument_context = build_instrument_context(company_name)
         investment_plan = state["investment_plan"]
+        trading_objective = state.get("trading_objective", "")
+        intraday_context = state.get("intraday_context", "")
 
         messages = [
             {
                 "role": "system",
                 "content": (
-                    "You are a trading agent analyzing market data to make investment decisions. "
-                    "Based on your analysis, provide a specific recommendation to buy, sell, or hold. "
-                    "Anchor your reasoning in the analysts' reports and the research plan."
+                    "You are an intraday trading agent. Your decision applies only to today's "
+                    "Indian market session, and all positions must be closed by 15:25 IST. "
+                    "Do not make long-term investment recommendations. Provide a specific "
+                    "Buy, Sell, or Hold transaction proposal anchored in the analysts' reports, "
+                    "the research plan, and the intraday setup."
                 ),
             },
             {
@@ -38,8 +42,11 @@ def create_trader(llm):
                     f"plan tailored for {company_name}. {instrument_context} This plan incorporates "
                     f"insights from current technical market trends, macroeconomic indicators, and "
                     f"social media sentiment. Use this plan as a foundation for evaluating your next "
-                    f"trading decision.\n\nProposed Investment Plan: {investment_plan}\n\n"
-                    f"Leverage these insights to make an informed and strategic decision."
+                    f"trading decision.\n\nTrading objective: {trading_objective}\n\n"
+                    f"Intraday context:\n{intraday_context}\n\n"
+                    f"Proposed Investment Plan: {investment_plan}\n\n"
+                    f"Return an intraday proposal with entry condition, stop-loss, position sizing, "
+                    f"and a hard end-of-day exit assumption. If the setup is not clean, choose Hold."
                 ),
             },
         ]

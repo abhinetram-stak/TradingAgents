@@ -306,6 +306,9 @@ class TradingAgentsGraph:
         init_agent_state = self.propagator.create_initial_state(
             company_name, trade_date, past_context=past_context
         )
+        intraday_contexts = self.config.get("intraday_context_by_ticker", {})
+        init_agent_state["trading_objective"] = self.config.get("trading_objective", "")
+        init_agent_state["intraday_context"] = intraday_contexts.get(company_name, "")
         args = self.propagator.get_graph_args()
 
         # Inject thread_id so same ticker+date resumes, different date starts fresh.
@@ -351,6 +354,8 @@ class TradingAgentsGraph:
         self.log_states_dict[str(trade_date)] = {
             "company_of_interest": final_state["company_of_interest"],
             "trade_date": final_state["trade_date"],
+            "trading_objective": final_state.get("trading_objective", ""),
+            "intraday_context": final_state.get("intraday_context", ""),
             "market_report": final_state["market_report"],
             "sentiment_report": final_state["sentiment_report"],
             "news_report": final_state["news_report"],

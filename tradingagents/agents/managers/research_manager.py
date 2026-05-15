@@ -16,6 +16,8 @@ def create_research_manager(llm):
     def research_manager_node(state) -> dict:
         instrument_context = build_instrument_context(state["company_of_interest"])
         history = state["investment_debate_state"].get("history", "")
+        trading_objective = state.get("trading_objective", "")
+        intraday_context = state.get("intraday_context", "")
 
         investment_debate_state = state["investment_debate_state"]
 
@@ -26,13 +28,21 @@ def create_research_manager(llm):
 ---
 
 **Rating Scale** (use exactly one):
-- **Buy**: Strong conviction in the bull thesis; recommend taking or growing the position
-- **Overweight**: Constructive view; recommend gradually increasing exposure
-- **Hold**: Balanced view; recommend maintaining the current position
-- **Underweight**: Cautious view; recommend trimming exposure
-- **Sell**: Strong conviction in the bear thesis; recommend exiting or avoiding the position
+- **Buy**: Strong intraday long setup for today
+- **Overweight**: Moderate intraday long setup for today
+- **Hold**: No trade / wait; setup is unclear, choppy, illiquid, or too close to risk levels
+- **Underweight**: Avoid long exposure or reduce existing exposure today
+- **Sell**: Strong intraday exit/short-avoidance signal
 
 Commit to a clear stance whenever the debate's strongest arguments warrant one; reserve Hold for situations where the evidence on both sides is genuinely balanced.
+
+**Intraday Mandate:**
+{trading_objective or "Evaluate today's trade only."}
+
+**Intraday Context:**
+{intraday_context or "No intraday context supplied."}
+
+Your plan applies only to today's session and must assume any open position exits by 15:25 IST. Do not recommend multi-week or multi-month holding periods. Include entry condition, invalidation, stop-loss suitability, and take-profit suitability in the strategic actions.
 
 ---
 

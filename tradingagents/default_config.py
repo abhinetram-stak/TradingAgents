@@ -35,6 +35,8 @@ DEFAULT_CONFIG = {
     "max_debate_rounds": 1,
     "max_risk_discuss_rounds": 1,
     "max_recur_limit": 100,
+    "trading_objective": "",
+    "intraday_context_by_ticker": {},
     # Data vendor configuration
     # Category-level configuration (default for all tools in category)
     "data_vendors": {

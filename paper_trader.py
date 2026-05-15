@@ -61,20 +61,27 @@ PAPER_CONFIG = {
     # Time to run morning analysis (IST). 9:30 lets the NSE open (9:15) settle
     # and gives yfinance's ~15-min data delay time to publish today's bars.
     "analysis_time": "09:30",
+    "trading_objective": (
+        "Evaluate an intraday paper trade for today's Indian market session only. "
+        "All positions must be closed by 15:25 IST. Do not produce multi-week or "
+        "multi-month recommendations; focus on today's tradable setup."
+    ),
 
     # OpenAI models
-    "deep_think_llm": "gpt-4o",
+    "deep_think_llm": "gpt-4o-mini",
     "quick_think_llm": "gpt-4o-mini",
     "max_debate_rounds": 1,
     "max_risk_discuss_rounds": 1,
 
     # Risk controls — applied on every intraday price check
-    "stop_loss_pct":        0.02,   # fixed floor  — close if price drops 2% from entry
-    "trailing_stop_pct":    0.02,   # trailing      — close if price drops 2% from peak
-    "take_profit_pct":      0.03,   # hard ceiling  — close if price rises 3% from entry
+    "stop_loss_pct":        0.01,   # fixed floor  — close if price drops 1% from entry
+    "trailing_stop_pct":    0.01,   # trailing      — close if price drops 1% from peak
+    "take_profit_pct":      0.015,   # hard ceiling  — close if price rises 1.5% from entry
 
     # Seconds between intraday price checks (stop/TP monitoring)
-    "price_check_interval": 300,    # 5 minutes
+    "price_check_interval": 180,    # 3 minutes
+    "intraday_interval": "5m",
+    "intraday_period": "1d",
 
     # Telegram notifications. Configure TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID
     # in .env. Status updates are sent every 30 minutes while the bot runs.
@@ -570,6 +577,75 @@ def get_prices(tickers: list, mode: str = "last") -> dict:
             log.warning("Price fetch failed for %s: %s", ticker, exc)
     return prices
 
+
+def build_intraday_context(ticker: str, execution_price: float) -> str:
+    """Build a compact intraday setup note for the agents."""
+    import yfinance as yf
+
+    lines = [
+        "Intraday trading mandate:",
+        PAPER_CONFIG["trading_objective"],
+        f"Execution reference price: {_format_inr(execution_price)}",
+        f"Configured stop: {PAPER_CONFIG['stop_loss_pct'] * 100:.1f}%",
+        f"Configured trailing stop: {PAPER_CONFIG['trailing_stop_pct'] * 100:.1f}%",
+        f"Configured take profit: {PAPER_CONFIG['take_profit_pct'] * 100:.1f}%",
+    ]
+
+    try:
+        t = yf.Ticker(ticker)
+        intraday = t.history(
+            period=PAPER_CONFIG["intraday_period"],
+            interval=PAPER_CONFIG["intraday_interval"],
+        )
+        daily = t.history(period="5d", interval="1d")
+        if daily is not None and len(daily) >= 2:
+            previous_close = float(daily["Close"].iloc[-2])
+            gap_pct = (execution_price - previous_close) / previous_close * 100
+            lines.append(f"Previous close: {_format_inr(previous_close)}")
+            lines.append(f"Opening/reference gap: {gap_pct:+.2f}%")
+
+        if intraday is not None and not intraday.empty:
+            today = datetime.now(IST).date()
+            with_context_tz = intraday
+            if getattr(with_context_tz.index, "tz", None) is not None:
+                with_context_tz = with_context_tz.tz_convert(IST)
+            same_day = with_context_tz[with_context_tz.index.date == today]
+            if same_day.empty:
+                same_day = with_context_tz
+
+            current = float(same_day["Close"].iloc[-1])
+            day_high = float(same_day["High"].max())
+            day_low = float(same_day["Low"].min())
+            day_open = float(same_day["Open"].iloc[0])
+            volume = float(same_day["Volume"].sum())
+            typical_price = (same_day["High"] + same_day["Low"] + same_day["Close"]) / 3
+            total_volume = same_day["Volume"].sum()
+            vwap = (
+                float((typical_price * same_day["Volume"]).sum() / total_volume)
+                if total_volume
+                else current
+            )
+            opening_range = same_day.head(3)
+            or_high = float(opening_range["High"].max())
+            or_low = float(opening_range["Low"].min())
+
+            lines.extend(
+                [
+                    f"Latest intraday price: {_format_inr(current)}",
+                    f"Day open/high/low: {_format_inr(day_open)} / {_format_inr(day_high)} / {_format_inr(day_low)}",
+                    f"VWAP estimate: {_format_inr(vwap)}",
+                    f"Opening range high/low: {_format_inr(or_high)} / {_format_inr(or_low)}",
+                    f"Intraday volume in fetched bars: {volume:,.0f}",
+                    "Intraday interpretation guide: above VWAP and above opening range favors longs; "
+                    "below VWAP and below opening range argues for Hold/Sell; choppy action inside "
+                    "the opening range argues for Hold unless catalysts are strong.",
+                ]
+            )
+    except Exception as exc:
+        lines.append(f"Intraday context fetch failed: {exc}")
+
+    return "\n".join(lines)
+
 # -- Market calendar helpers ---------------------------------------------------
 
 def is_weekday(dt: datetime) -> bool:
@@ -614,6 +690,10 @@ def run_morning_analysis(ta, portfolio: Portfolio) -> None:
 
         price = prices[ticker]
         log.info("[%s] Analysing %s …", ticker, today)
+
+        ta.config.setdefault("intraday_context_by_ticker", {})[ticker] = (
+            build_intraday_context(ticker, price)
+        )
 
         try:
             from tradingagents.agents.utils.rating import parse_rating
@@ -958,6 +1038,8 @@ def main() -> None:
             "quick_think_llm": cfg["quick_think_llm"],
             "max_debate_rounds": cfg["max_debate_rounds"],
             "max_risk_discuss_rounds": cfg["max_risk_discuss_rounds"],
+            "trading_objective": cfg["trading_objective"],
+            "intraday_context_by_ticker": {},
             "data_vendors": {
                 "core_stock_apis":      "yfinance",
                 "technical_indicators": "yfinance",

@@ -31,6 +31,8 @@ def create_portfolio_manager(llm):
         risk_debate_state = state["risk_debate_state"]
         research_plan = state["investment_plan"]
         trader_plan = state["trader_investment_plan"]
+        trading_objective = state.get("trading_objective", "")
+        intraday_context = state.get("intraday_context", "")
 
         past_context = state.get("past_context", "")
         lessons_line = (
@@ -46,11 +48,19 @@ def create_portfolio_manager(llm):
 ---
 
 **Rating Scale** (use exactly one):
-- **Buy**: Strong conviction to enter or add to position
-- **Overweight**: Favorable outlook, gradually increase exposure
-- **Hold**: Maintain current position, no action needed
-- **Underweight**: Reduce exposure, take partial profits
-- **Sell**: Exit position or avoid entry
+- **Buy**: Strong intraday long setup for today
+- **Overweight**: Moderate intraday long setup for today
+- **Hold**: No trade / wait; setup is unclear, choppy, illiquid, or too close to risk levels
+- **Underweight**: Avoid adding long exposure or reduce existing exposure today
+- **Sell**: Strong intraday exit/avoidance signal
+
+**Intraday Mandate:**
+{trading_objective or "Evaluate today's trade only."}
+
+**Intraday Context:**
+{intraday_context or "No intraday context supplied."}
+
+The final decision applies only to today's Indian market session. Assume all positions close by 15:25 IST. Do not provide multi-week or multi-month theses. Your executive summary must include the intraday entry condition, stop-loss/invalidation, take-profit logic, confidence, and end-of-day exit assumption.
 
 **Context:**
 - Research Manager's investment plan: **{research_plan}**

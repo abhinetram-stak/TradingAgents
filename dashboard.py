@@ -314,6 +314,8 @@ def _make_trading_graph():
             "quick_think_llm": PAPER_CONFIG["quick_think_llm"],
             "max_debate_rounds": PAPER_CONFIG["max_debate_rounds"],
             "max_risk_discuss_rounds": PAPER_CONFIG["max_risk_discuss_rounds"],
+            "trading_objective": PAPER_CONFIG["trading_objective"],
+            "intraday_context_by_ticker": {},
             "data_vendors": {
                 "core_stock_apis": "yfinance",
                 "technical_indicators": "yfinance",

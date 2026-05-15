@@ -85,7 +85,8 @@ class ResearchPlan(BaseModel):
     strategic_actions: str = Field(
         description=(
             "Concrete steps for the trader to implement the recommendation, "
-            "including position sizing guidance consistent with the rating."
+            "including position sizing, entry condition, invalidation, and "
+            "stop/target guidance consistent with the rating."
         ),
     )
 
@@ -186,7 +187,7 @@ class PortfolioDecision(BaseModel):
     executive_summary: str = Field(
         description=(
             "A concise action plan covering entry strategy, position sizing, "
-            "key risk levels, and time horizon. Two to four sentences."
+            "key risk levels, confidence, and time horizon. Two to four sentences."
         ),
     )
     investment_thesis: str = Field(
@@ -198,11 +199,11 @@ class PortfolioDecision(BaseModel):
     )
     price_target: Optional[float] = Field(
         default=None,
-        description="Optional target price in the instrument's quote currency.",
+        description="Optional intraday target price in the instrument's quote currency.",
     )
     time_horizon: Optional[str] = Field(
         default=None,
-        description="Optional recommended holding period, e.g. '3-6 months'.",
+        description="Optional recommended holding period, e.g. 'Intraday, exit by 15:25 IST'.",
     )
 
 
