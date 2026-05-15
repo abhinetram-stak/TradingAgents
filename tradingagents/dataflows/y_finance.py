@@ -1,10 +1,35 @@
 from typing import Annotated
-from datetime import datetime
+from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 import pandas as pd
 import yfinance as yf
 import os
 from .stockstats_utils import StockstatsUtils, _clean_dataframe, yf_retry, load_ohlcv, filter_financials_by_date
+
+
+def _same_day_intraday_data(ticker: yf.Ticker, symbol: str, target_date: str) -> str | None:
+    """Return same-day intraday data when the daily candle is not available yet."""
+    intraday = yf_retry(lambda: ticker.history(period="5d", interval="5m"))
+    if intraday.empty:
+        return None
+
+    if intraday.index.tz is not None:
+        localized = intraday.tz_convert("Asia/Kolkata")
+    else:
+        localized = intraday
+    same_day = localized[localized.index.date == datetime.strptime(target_date, "%Y-%m-%d").date()]
+    if same_day.empty:
+        return None
+
+    numeric_columns = ["Open", "High", "Low", "Close", "Volume"]
+    for col in numeric_columns:
+        if col in same_day.columns:
+            same_day[col] = same_day[col].round(2)
+
+    header = f"# Intraday 5-minute stock data for {symbol.upper()} on {target_date}\n"
+    header += f"# Total records: {len(same_day)}\n"
+    header += f"# Data retrieved on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    return header + same_day.to_csv()
 
 def get_YFin_data_online(
     symbol: Annotated[str, "ticker symbol of the company"],
@@ -13,13 +38,22 @@ def get_YFin_data_online(
 ):
 
     datetime.strptime(start_date, "%Y-%m-%d")
-    datetime.strptime(end_date, "%Y-%m-%d")
+    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+    # yfinance treats end as exclusive. A same-day request like
+    # 2026-05-15 -> 2026-05-15 is an empty window, so include the requested
+    # end date by moving the exclusive boundary forward one day.
+    inclusive_end = (end_dt + timedelta(days=1)).strftime("%Y-%m-%d")
 
     # Create ticker object
     ticker = yf.Ticker(symbol.upper())
 
+    if start_date == end_date:
+        intraday_csv = _same_day_intraday_data(ticker, symbol, start_date)
+        if intraday_csv:
+            return intraday_csv
+
     # Fetch historical data for the specified date range
-    data = yf_retry(lambda: ticker.history(start=start_date, end=end_date))
+    data = yf_retry(lambda: ticker.history(start=start_date, end=inclusive_end))
 
     # Check if data is empty
     if data.empty:
